@@ -1,0 +1,150 @@
+﻿@page "/loans"
+@using ProjectBalanceLibrary.Contracts
+@using ProjectBalanceLibrary.Models
+@using Radzen
+@using Radzen.Blazor
+@inject ILoanService LoanService
+@inject IBookService BookService
+@inject ILenderService LenderService
+@inject NotificationService Notify
+@inject DialogService Dialog
+
+
+<h3>Loans</h3>
+<RadzenButton Text="New Loan" Icon="add" Click="OpenCreateDialog" Style="margin-bottom:10px" />
+
+
+
+<RadzenDataGrid TItem="Loan" Data="items" @ref="grid" AllowPaging AllowSorting PageSize="10"
+                RowRender="OnRowRender">
+    <Columns>
+        <RadzenDataGridColumn TItem="Loan" Title="#" Width="60px" Context="l">
+            <Template Context="l">@l.Id</Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="Loan" Title="Book" Context="l">
+            <Template Context="l">@l.Book?.Title (@l.Book?.ISBN)</Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="Loan" Title="Lender" Context="l">
+            <Template Context="l">@l.Lender?.FullName</Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="Loan" Title="Loaned">
+            <Template Context="l">@l.LoanDateUtc.ToLocalTime()</Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="Loan" Title="Due">
+            <Template Context="l">@l.DueDateUtc.ToLocalTime()</Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="Loan" Title="Returned">
+            <Template Context="l">@(l.ReturnDateUtc?.ToLocalTime().ToString() ?? "—")</Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="Loan" Title="Status">
+            <Template Context="l">
+                @if (l.ReturnDateUtc != null)
+                {
+                    <span class="badge bg-success">Returned</span>
+                }
+                else if (l.DueDateUtc < DateTime.UtcNow)
+                {
+
+                    <span class="badge bg-danger">Overdue</span>
+                }
+                else
+                {
+
+                    <span class="badge bg-warning">Active</span>
+                }
+            </Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="Loan" Context="l" TextAlign="TextAlign.Center" Width="140px">
+            <Template Context="l">
+                @if (l.ReturnDateUtc == null)
+                {
+                    <RadzenButton ButtonStyle="ButtonStyle.Primary" Icon="assignment_turned_in" Size="ButtonSize.Small" Text="Return" Click="() => Return(l)" />
+                }
+            </Template>
+        </RadzenDataGridColumn>
+    </Columns>
+</RadzenDataGrid>
+
+
+
+<RadzenNotification />
+
+
+@code {
+    private List<Loan> items = new();
+    private List<Book> availableBooks = new();
+    private List<Lender> lenders = new();
+    RadzenDataGrid<Loan> grid = default!;
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Reload();
+    }
+
+
+    async Task Reload()
+    {
+        items = await LoanService.GetAllAsync();
+        var allBooks = await BookService.GetAllAsync();
+        availableBooks = allBooks.Where(b => b.CopiesAvailable > 0).ToList();
+        lenders = await LenderService.GetAllAsync();
+    }
+
+    async Task Return(Loan l)
+    {
+        try
+        {
+            await LoanService.ReturnLoanAsync(l.Id);
+            Notify.Notify(new NotificationMessage { Severity = NotificationSeverity.Success, Summary = "Returned", Detail = l.Book?.Title });
+            await Reload();
+        }
+        catch (Exception ex)
+        {
+            Notify.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = "Error", Detail = ex.Message });
+        }
+    }
+
+
+    async Task OpenCreateDialog()
+    {
+        var model = new CreateLoanVm();
+        var result = await Dialog.OpenAsync<CreateLoanDialog>("New Loan",
+        new Dictionary<string, object?>
+        {
+            [nameof(CreateLoanDialog.Books)] = availableBooks,
+            [nameof(CreateLoanDialog.Lenders)] = lenders,
+            [nameof(CreateLoanDialog.Model)] = model
+        }, new DialogOptions { Width = "600px", CloseDialogOnOverlayClick = true });
+
+
+        if (result is CreateLoanVm vm && vm.SelectedBookId.HasValue && vm.SelectedLenderId.HasValue)
+        {
+            try
+            {
+                await LoanService.CreateLoanAsync(vm.SelectedBookId.Value, vm.SelectedLenderId.Value);
+                Notify.Notify(new NotificationMessage { Severity = NotificationSeverity.Success, Summary = "Loan created", Detail = "" });
+                await Reload();
+            }
+            catch (Exception ex)
+            {
+                Notify.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = "Error", Detail = ex.Message });
+            }
+        }
+    }
+
+    void OnRowRender(RowRenderEventArgs<Loan> args)
+    {
+        if (args.Data.ReturnDateUtc == null && args.Data.DueDateUtc < DateTime.UtcNow)
+        {
+            args.Attributes.Add("style", "background-color: rgba(255,0,0,0.06)");
+        }
+    }
+
+
+    public class CreateLoanVm
+    {
+        public int? SelectedBookId { get; set; }
+        public int? SelectedLenderId { get; set; }
+    }
+}

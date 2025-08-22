@@ -1,0 +1,128 @@
+﻿@page "/books"
+@rendermode InteractiveServer
+@using ProjectBalanceLibrary.Contracts
+@using ProjectBalanceLibrary.Models
+@using Radzen
+@using Radzen.Blazor
+@inject IBookService BookService
+@inject NotificationService Notify
+@inject DialogService Dialog
+
+<h3>Books</h3>
+<RadzenButton Text="Add Book" class="btn btn-primary" Click="Add" Style="margin-bottom:10px" Icon="add_circle" />
+<RadzenDataGrid TItem="Book" Data="items" @ref="grid" AllowPaging AllowSorting PageSize="10"
+                RowUpdate="OnUpdate" RowCreate="OnCreate">
+    <Columns>
+        <RadzenDataGridColumn TItem="Book" Property="Id" Title="#" Width="60px" />
+        <RadzenDataGridColumn TItem="Book" Property="ISBN" Title="ISBN">
+            <EditTemplate Context="b">
+                <RadzenTextBox @bind-Value="b.ISBN" Name="isbn" Style="width:100%" />
+                <RadzenRequiredValidator Component="isbn" Text="ISBN required" />
+            </EditTemplate>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="Book" Property="Title" Title="Title">
+            <EditTemplate Context="b">
+                <RadzenTextBox @bind-Value="b.Title" Name="title" Style="width:100%" />
+                <RadzenRequiredValidator Component="title" Text="Title required" />
+            </EditTemplate>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="Book" Property="Author" Title="Author">
+            <EditTemplate Context="b">
+                <RadzenTextBox @bind-Value="b.Author" Name="author" Style="width:100%" />
+                <RadzenRequiredValidator Component="author" Text="Author required" />
+            </EditTemplate>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="Book" Property="PublishedYear" Title="Year">
+            <EditTemplate Context="b">
+                <RadzenNumeric @bind-Value="b.PublishedYear" />
+            </EditTemplate>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="Book" Property="TotalCopies" Title="Total">
+            <EditTemplate Context="b">
+                <RadzenNumeric @bind-Value="b.TotalCopies" Min="0" />
+            </EditTemplate>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="Book" Property="CopiesAvailable" Title="Available">
+            <EditTemplate Context="b">
+                <RadzenNumeric @bind-Value="b.CopiesAvailable" Min="0" />
+            </EditTemplate>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="Book" Context="b" TextAlign="TextAlign.Center" Width="160px">
+            <Template Context="b">
+                    <RadzenButton Icon="edit" Click="@(() => grid.EditRow(b))" />
+                <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Size="ButtonSize.Small" Style="margin-left:6px" Click="() => ConfirmDelete(b)" />
+            </Template>
+            <EditTemplate Context="b">
+                <RadzenButton ButtonStyle="ButtonStyle.Primary" Icon="save" Size="ButtonSize.Small" Click="() => grid.UpdateRow(b)" />
+                <RadzenButton ButtonStyle="ButtonStyle.Light" Icon="close" Size="ButtonSize.Small" Style="margin-left:6px" Click="() => grid.CancelEditRow(b)" />
+            </EditTemplate>
+        </RadzenDataGridColumn>
+    </Columns>
+</RadzenDataGrid>
+<RadzenNotification />
+
+@code {
+
+    private List<Book> items = new();
+    RadzenDataGrid<Book> grid = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        items = await BookService.GetAllAsync();
+    }
+
+    void Add()
+    {
+
+        Console.WriteLine("Adding");
+        var item = new Book { TotalCopies = 1, CopiesAvailable = 1 };
+        items.Add(item);
+        grid.InsertRow(item);
+    }
+
+    async Task OnCreate(Book b)
+    {
+        try
+        {
+            await BookService.CreateAsync(b);
+            Notify.Notify(new NotificationMessage { Severity = NotificationSeverity.Success, Summary = "Created", Detail = $"{b.Title}" });
+        }
+        catch (Exception ex)
+        {
+            Notify.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = "Error", Detail = ex.Message });
+        }
+        items = await BookService.GetAllAsync();
+    }
+
+    async Task OnUpdate(Book b)
+    {
+        try
+        {
+            await BookService.UpdateAsync(b);
+            Notify.Notify(new NotificationMessage { Severity = NotificationSeverity.Success, Summary = "Updated", Detail = $"{b.Title}" });
+        }
+        catch (Exception ex)
+        {
+            Notify.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = "Error", Detail = ex.Message });
+        }
+        items = await BookService.GetAllAsync();
+    }
+
+    async Task ConfirmDelete(Book b)
+    {
+        bool? ok = await Dialog.Confirm($"Delete '{b.Title}'?", "Confirm Delete", new ConfirmOptions { OkButtonText = "Delete", CancelButtonText = "Cancel" });
+        if (ok == true)
+        {
+            try
+            {
+                await BookService.DeleteAsync(b.Id);
+                items.Remove(b);
+                await grid.Reload();
+            }
+            catch (Exception ex)
+            {
+                Notify.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = "Error", Detail = ex.Message });
+            }
+        }
+    }
+}

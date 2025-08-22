@@ -1,0 +1,116 @@
+﻿@page "/lenders"
+@using ProjectBalanceLibrary.Contracts
+@using ProjectBalanceLibrary.Models
+@using Radzen
+@using Radzen.Blazor
+@inject ILenderService LenderService
+@inject NotificationService Notify
+@inject DialogService Dialog
+
+
+<h3>Lenders</h3>
+<RadzenButton Text="Add Lender" Click="Add" Style="margin-bottom:10px" Icon="person_add" />
+
+
+<RadzenDataGrid TItem="Lender" Data="items" @ref="grid" AllowPaging AllowSorting PageSize="10"
+                RowUpdate="OnUpdate" RowCreate="OnCreate">
+    <Columns>
+        <RadzenDataGridColumn TItem="Lender" Property="Id" Title="#" Width="60px" />
+        <RadzenDataGridColumn TItem="Lender" Property="FullName" Title="Full Name">
+            <EditTemplate Context="l">
+                <RadzenTextBox @bind-Value="l.FullName" Name="name" Style="width:100%" />
+                <RadzenRequiredValidator Component="name" Text="Name required" />
+            </EditTemplate>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="Lender" Property="Email" Title="Email">
+            <EditTemplate Context="l">
+                <RadzenTextBox @bind-Value="l.Email" Name="email" Style="width:100%" />
+                <RadzenRequiredValidator Component="email" Text="Email required" />
+                <RadzenEmailValidator Component="email" Text="Invalid email" />
+            </EditTemplate>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="Lender" Context="l" TextAlign="TextAlign.Center" Width="160px">
+            <Template Context="l">
+                <RadzenButton ButtonStyle="ButtonStyle.Primary" Icon="edit" Size="ButtonSize.Small" Click="() => grid.EditRow(l)" />
+                <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Size="ButtonSize.Small" Style="margin-left:6px" Click="() => ConfirmDelete(l)" />
+            </Template>
+            <EditTemplate Context="l">
+                <RadzenButton ButtonStyle="ButtonStyle.Primary" Icon="save" Size="ButtonSize.Small" Click="() => grid.UpdateRow(l)" />
+                <RadzenButton ButtonStyle="ButtonStyle.Light" Icon="close" Size="ButtonSize.Small" Style="margin-left:6px" Click="() => grid.CancelEditRow(l)" />
+            </EditTemplate>
+        </RadzenDataGridColumn>
+    </Columns>
+</RadzenDataGrid>
+
+
+<RadzenNotification />
+
+
+
+@code {
+    private List<Lender> items = new();
+    RadzenDataGrid<Lender> grid = default!;
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        items = await LenderService.GetAllAsync();
+    }
+
+
+    void Add()
+    {
+        var item = new Lender();
+        items.Add(item);
+        grid.InsertRow(item);
+    }
+
+
+
+    async Task OnCreate(Lender l)
+    {
+        try
+        {
+            await LenderService.CreateAsync(l);
+            Notify.Notify(new NotificationMessage { Severity = NotificationSeverity.Success, Summary = "Created", Detail = l.FullName });
+        }
+        catch (Exception ex)
+        {
+            Notify.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = "Error", Detail = ex.Message });
+        }
+        items = await LenderService.GetAllAsync();
+    }
+
+
+    async Task OnUpdate(Lender l)
+    {
+        try
+        {
+            await LenderService.UpdateAsync(l);
+            Notify.Notify(new NotificationMessage { Severity = NotificationSeverity.Success, Summary = "Updated", Detail = l.FullName });
+        }
+        catch (Exception ex)
+        {
+            Notify.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = "Error", Detail = ex.Message });
+        }
+        items = await LenderService.GetAllAsync();
+    }
+
+    async Task ConfirmDelete(Lender l)
+    {
+        bool? ok = await Dialog.Confirm($"Delete '{l.FullName}'?", "Confirm Delete", new ConfirmOptions { OkButtonText = "Delete", CancelButtonText = "Cancel" });
+        if (ok == true)
+        {
+            try
+            {
+                await LenderService.DeleteAsync(l.Id);
+                items.Remove(l);
+                await grid.Reload();
+            }
+            catch (Exception ex)
+            {
+                Notify.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = "Error", Detail = ex.Message });
+            }
+        }
+    }
+}

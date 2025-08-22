@@ -1,0 +1,24 @@
+﻿@using Radzen
+@using Radzen.Blazor
+<h3>Create a new book loan</h3>
+@inherits CreateLoanDialogBase
+
+
+<EditForm Model="Model">
+    <div class="mb-3">
+        <label>Book</label>
+        <RadzenDropDown Data="Books" TextProperty="Title" ValueProperty="Id" @bind-Value="Model.SelectedBookId" Style="width:100%" Placeholder="Select a book" />
+    </div>
+    <div class="mb-3">
+        <label>Lender</label>
+        <RadzenDropDown Data="Lenders" TextProperty="FullName" ValueProperty="Id" @bind-Value="Model.SelectedLenderId" Style="width:100%" Placeholder="Select a lender" />
+    </div>
+    <div class="mb-3" style="display:flex; gap:8px; justify-content:flex-end">
+        <RadzenButton Text="Cancel" ButtonStyle="ButtonStyle.Light" Click="() => Close(null)" />
+        <RadzenButton Text="Create" ButtonStyle="ButtonStyle.Primary" Click="Submit" />
+    </div>
+</EditForm>
+
+
+@code {
+}
