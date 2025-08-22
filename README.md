@@ -24,33 +24,7 @@
 
 
 
-\*\*Workaround for reviewers (quick patch):\*\*
-
-1\. In `App.razor`, keep `<Routes>` \*\*without\*\* `@rendermode`. Include:
-
-&nbsp;  ```razor
-
-&nbsp;  <HeadOutlet />
-
-&nbsp;  <Routes>
-
-&nbsp;    <NotFound>
-
-&nbsp;      <LayoutView Layout="@typeof(MainLayout)">
-
-&nbsp;        <p role="alert">Sorry, there’s nothing at this address.</p>
-
-&nbsp;      </LayoutView>
-
-&nbsp;    </NotFound>
-
-&nbsp;  </Routes>
-
-&nbsp;  <script src="\_framework/blazor.web.js"></script>
-
-&nbsp;  <link rel="stylesheet" href="\_content/Radzen.Blazor/css/default.css" />
-
-&nbsp;  <script src="\_content/Radzen.Blazor/Radzen.Blazor.js"></script>
+\*\*Workaround for reviewers (quick patch):\*\*  The workaround was not added back due to timebox challange
 
 
 
